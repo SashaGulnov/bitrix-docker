@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: ./docker/nginx
+    volumes:
+      - ./www:/var/www/bitrix
+      - ./storage/docker/logs/nginx/:/var/log/nginx/
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - php
+    networks:
+      bitrix:
+        ipv4_address: ${NGINX_INTERFACE}
+    restart: always
+  php:
+    build:
+      context: ./docker/php
+    volumes:
+      - ./www:/var/www/bitrix
+      - ./storage/docker/logs/php/:/var/log/php/
+    depends_on:
+      - mysql
+    networks:
+      - bitrix
+    restart: always
+  redis:
+    build:
+      context: ./docker/redis
+    volumes:
+      - ./storage/docker/redis:/data
+    ports:
+      - "6379"
+    networks:
+      - bitrix
+    restart: always
+  mysql:
+    build:
+      context: ./docker/mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "33061:3306"
+    networks:
+      - bitrix
+    restart: always
+  memcached:
+    build:
+      context: ./docker/memcached
+    volumes:
+      - ./storage/docker/memcached:/var/lib/memcached
+    ports:
+      - "11211"
+    depends_on:
+      - php
+    networks:
+      - bitrix
+networks:
+  bitrix:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.100.0.0/24
