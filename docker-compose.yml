@@ -7,15 +7,22 @@ services:
     volumes:
       - ./www:/var/www/bitrix
       - ./storage/docker/logs/nginx/:/var/log/nginx/
-    ports:
-      - "80:80"
-      - "443:443"
     depends_on:
       - php
     networks:
-      bitrix:
-        ipv4_address: ${NGINX_INTERFACE}
+      - web
+      - internal
     restart: always
+    labels:
+      - "traefik.http.routers.${APP_NAME}-http.entrypoints=web"
+      - "traefik.http.routers.${APP_NAME}-http.rule=Host(`${APP_URL_NAME}`)"
+      - "traefik.http.routers.${APP_NAME}-http.middlewares=${APP_NAME}-https"
+      - "traefik.http.middlewares.${APP_NAME}-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.${APP_NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${APP_NAME}.rule=Host(`${APP_URL_NAME}`)"
+      - "traefik.http.routers.${APP_NAME}.tls=true"
+      - "traefik.docker.network=web"
+      - "traefik.port=80"
   php:
     build:
       context: ./docker/php
@@ -25,8 +32,10 @@ services:
     depends_on:
       - mysql
     networks:
-      - bitrix
+      - internal
     restart: always
+    labels:
+      - "traefik.enable=false"
   redis:
     build:
       context: ./docker/redis
@@ -35,8 +44,10 @@ services:
     ports:
       - "6379"
     networks:
-      - bitrix
+      - internal
     restart: always
+    labels:
+      - "traefik.enable=false"
   mysql:
     build:
       context: ./docker/mysql
@@ -45,11 +56,11 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    ports:
-      - "33061:3306"
     networks:
-      - bitrix
+      - internal
     restart: always
+    labels:
+      - "traefik.enable=false"
   memcached:
     build:
       context: ./docker/memcached
@@ -60,11 +71,12 @@ services:
     depends_on:
       - php
     networks:
-      - bitrix
+      - internal
+    labels:
+      - "traefik.enable=false"
 networks:
-  bitrix:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 10.100.0.0/24
+  networks:
+  web:
+    external: true
+  internal:
+    external: false
